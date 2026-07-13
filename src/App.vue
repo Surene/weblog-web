@@ -58,7 +58,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, provide } from 'vue'
 import { useRoute } from 'vue-router'
 import { siteApi } from './api/site.js'
 
