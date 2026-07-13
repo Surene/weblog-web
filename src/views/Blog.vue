@@ -13,7 +13,7 @@
     <article v-else>
       <div style="margin-bottom:48px">
         <h2 style="font-size:28px;font-weight:400;margin-bottom:8px;color:var(--text)">
-          <span v-if="latest.isTop" class="pinned-badge" title="置顶文章">
+          <span v-if="isPinned(latest)" class="pinned-badge" title="置顶文章">
             <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
             置顶
           </span>
@@ -40,7 +40,7 @@
           <ul class="article-list">
             <li v-for="a in others" :key="a.id" class="article-item">
               <span class="title">
-                <span v-if="a.isTop" class="pinned-badge" title="置顶文章">
+                <span v-if="isPinned(a)" class="pinned-badge" title="置顶文章">
                   <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
                   置顶
                 </span>
@@ -64,11 +64,13 @@ import SkeletonArticle from '../components/SkeletonArticle.vue'
 import SkeletonList from '../components/SkeletonList.vue'
 import { articleApi } from '../api/article.js'
 import { siteApi } from '../api/site.js'
+import { usePinned } from '../composables/usePinned.js'
 
 const latest = ref(null)
 const others = ref([])
 const loading = ref(false)
 const siteName = ref('My Blog')
+const { isPinned, sortByPinnedThenDate } = usePinned()
 
 const firstSentence = computed(() => {
   if (!latest.value) return ''
@@ -93,7 +95,7 @@ onMounted(async () => {
   try { const r = await siteApi.getConfig(); siteName.value = (r.data||{}).site_name||'My Blog' } catch(e){}
   try {
     const r = await articleApi.getList({page:1,size:10})
-    const all = r.data?.records||[]
+    const all = sortByPinnedThenDate(r.data?.records||[])
     latest.value = all[0]||null
     others.value = all.slice(1)
   } catch(e){} finally { loading.value = false }

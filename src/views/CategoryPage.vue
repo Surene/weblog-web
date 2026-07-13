@@ -13,7 +13,7 @@
           <ul class="article-list">
             <li v-for="a in group" :key="a.id" class="article-item">
               <span class="title">
-                <span v-if="a.isTop" class="pinned-badge" title="置顶文章">
+                <span v-if="isPinned(a)" class="pinned-badge" title="置顶文章">
                   <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
                   置顶
                 </span>
@@ -42,6 +42,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { articleApi } from '../api/article.js'
 import { categoryApi } from '../api/category.js'
+import { usePinned } from '../composables/usePinned.js'
 
 const route = useRoute()
 const articles = ref([])
@@ -49,6 +50,7 @@ const categories = ref([])
 const loading = ref(false)
 const categoryName = ref('')
 const total = ref(0)
+const { isPinned, sortByPinnedThenDate } = usePinned()
 
 const groupedArticles = computed(() => {
   const g = {}
@@ -69,7 +71,7 @@ onMounted(async () => {
     categoryName.value = cat?.name||slug
     if(cat) {
       const r = await articleApi.getList({page:1,size:100,categoryId:cat.id})
-      articles.value = r.data?.records||[]
+      articles.value = sortByPinnedThenDate(r.data?.records||[])
       total.value = r.data?.total||0
     }
   } catch(e){} finally { loading.value = false }

@@ -6,6 +6,10 @@
       <article v-else>
         <div style="margin-bottom:48px">
           <h2 style="font-size:28px;font-weight:400;margin-bottom:8px;color:var(--text)">
+            <span v-if="isPinned(latest)" class="pinned-badge" title="置顶文章">
+              <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
+              置顶
+            </span>
             <router-link :to="getArticleUrl(latest)" style="color:var(--text)">{{ latest.title }}</router-link>
           </h2>
           <div style="font-size:13px;color:var(--text-lighter);margin-bottom:16px">
@@ -31,7 +35,7 @@
         <ul class="article-list">
           <li v-for="a in articles" :key="a.id" class="article-item">
             <span class="title">
-              <span v-if="a.isTop" class="pinned-badge" title="置顶文章">
+              <span v-if="isPinned(a)" class="pinned-badge" title="置顶文章">
                 <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
                 置顶
               </span>
@@ -71,6 +75,7 @@ import { useRoute } from 'vue-router'
 import { articleApi } from '../api/article.js'
 import { categoryApi } from '../api/category.js'
 import { siteApi } from '../api/site.js'
+import { usePinned } from '../composables/usePinned.js'
 
 const route = useRoute()
 const articles = ref([])
@@ -81,6 +86,7 @@ const total = ref(0)
 const pageSize = 20
 const latest = ref(null)
 const siteName = ref('My Blog')
+const { isPinned, sortByPinnedThenDate } = usePinned()
 
 const firstSentence = computed(() => {
   if (!latest.value) return ''
@@ -109,7 +115,7 @@ onMounted(async () => {
   try { const r = await categoryApi.getAll(); categories.value = r.data||[] } catch(e){}
   try {
     const r = await articleApi.getList({page:1,size:10})
-    const all = r.data?.records||[]
+    const all = sortByPinnedThenDate(r.data?.records||[])
     latest.value = all[0]||null
   } catch(e){}
   await loadArticles()
@@ -119,7 +125,7 @@ onMounted(async () => {
 async function loadArticles() {
   try {
     const r = await articleApi.getList({page:page.value,size:pageSize})
-    const all = r.data?.records||[]
+    const all = sortByPinnedThenDate(r.data?.records||[])
     articles.value = (page.value===1 && latest.value) ? all.filter(a=>a.id!==latest.value.id) : all
     total.value = r.data?.total||0
   } catch(e){}

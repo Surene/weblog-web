@@ -66,6 +66,7 @@ const siteConfig = ref({})
 const siteName = ref('My Blog')
 const searchKeyword = ref('')
 const route = useRoute()
+provide('siteConfig', siteConfig)
 function doSearch() {
   if (!searchKeyword.value.trim()) return
   window.location.href = '/search?q=' + encodeURIComponent(searchKeyword.value)

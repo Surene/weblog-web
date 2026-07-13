@@ -18,7 +18,7 @@
       <p style="font-size:13px;color:#999;margin-bottom:20px">共找到 {{ articles.length }} 篇相关文章</p>
       <div v-for="a in articles" :key="a.id" class="search-result-item">
         <h3 class="search-result-title">
-          <span v-if="a.isTop" class="pinned-badge" title="置顶文章">
+          <span v-if="isPinned(a)" class="pinned-badge" title="置顶文章">
             <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
             置顶
           </span>
@@ -39,6 +39,7 @@ import { ref, onMounted } from 'vue'
 import LoadingSpinner from '../components/LoadingSpinner.vue'
 import { useRoute } from 'vue-router'
 import { articleApi } from '../api/article.js'
+import { usePinned } from '../composables/usePinned.js'
 
 const route = useRoute()
 const keyword = ref('')
@@ -47,6 +48,7 @@ const loading = ref(false)
 const searched = ref(false)
 const searchedKeyword = ref('')
 const inputRef = ref(null)
+const { isPinned, sortByPinnedThenDate } = usePinned()
 
 onMounted(() => {
   if (route.query.q) {
@@ -63,7 +65,7 @@ async function doSearch() {
   searchedKeyword.value = keyword.value
   try {
     const r = await articleApi.getList({ page:1, size:50, keyword: keyword.value })
-    articles.value = r.data?.records||[]
+    articles.value = sortByPinnedThenDate(r.data?.records||[])
   } catch(e){} finally { loading.value = false }
 }
 
