@@ -30,7 +30,13 @@
 
         <ul class="article-list">
           <li v-for="a in articles" :key="a.id" class="article-item">
-            <span class="title"><router-link :to="getArticleUrl(a)">{{ a.title }}</router-link></span>
+            <span class="title">
+              <span v-if="a.isTop" class="pinned-badge" title="置顶文章">
+                <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
+                置顶
+              </span>
+              <router-link :to="getArticleUrl(a)">{{ a.title }}</router-link>
+            </span>
             <span class="date">{{ formatDate(a.publishedAt) }}</span>
           </li>
         </ul>

@@ -13,6 +13,10 @@
     <article v-else>
       <div style="margin-bottom:48px">
         <h2 style="font-size:28px;font-weight:400;margin-bottom:8px;color:var(--text)">
+          <span v-if="latest.isTop" class="pinned-badge" title="置顶文章">
+            <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
+            置顶
+          </span>
           <router-link :to="getArticleUrl(latest)" style="color:var(--text)">{{ latest.title }}</router-link>
         </h2>
         <div style="font-size:13px;color:var(--text-lighter);margin-bottom:16px">
@@ -33,10 +37,16 @@
 
       <div v-if="others.length">
         <h2 class="year-heading">最新文章</h2>
-        <ul class="article-list">
-          <li v-for="a in others" :key="a.id" class="article-item">
-            <span class="title"><router-link :to="getArticleUrl(a)">{{ a.title }}</router-link></span>
-            <span class="date">{{ formatDate(a.publishedAt) }}</span>
+          <ul class="article-list">
+            <li v-for="a in others" :key="a.id" class="article-item">
+              <span class="title">
+                <span v-if="a.isTop" class="pinned-badge" title="置顶文章">
+                  <svg viewBox="0 0 24 24"><path d="M16 12V4H17V2H7V4H8V12L6 14V16H11.2V22H12.8V16H18V14L16 12Z"/></svg>
+                  置顶
+                </span>
+                <router-link :to="getArticleUrl(a)">{{ a.title }}</router-link>
+              </span>
+              <span class="date">{{ formatDate(a.publishedAt) }}</span>
           </li>
           <li class="article-item">
             <span class="title"><router-link to="/archives" class="view-more-link">更多文章 &raquo;</router-link></span>
