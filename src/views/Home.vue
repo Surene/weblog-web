@@ -1,11 +1,10 @@
 <template>
-  <div class="home-canvas" :class="{ 'reduced-motion': reducedMotion }">
+  <div class="home-memory" :class="{ 'reduced-motion': reducedMotion }">
     <canvas ref="canvas" @click="onCanvasClick"></canvas>
     <div class="home-overlay">
-      <div class="pet-names">
-        <span class="cat-name" @click.stop="interactCat">太阳</span>
-        <span class="and">&</span>
-        <span class="dog-name" @click.stop="interactDog">麻花</span>
+      <div class="title-area">
+        <h1 class="main-title">过去 · 现在 · 未来</h1>
+        <p class="subtitle">那些照亮我的人们，如流星划过时间长河</p>
       </div>
       <router-link to="/blog" class="home-enter">进入博客</router-link>
       <div class="controls">
@@ -13,7 +12,7 @@
           {{ reducedMotion ? '开启动画' : '减弱动画' }}
         </button>
       </div>
-      <p class="hint">轻抚宠物 · 移动鼠标产生视差</p>
+      <p class="hint">移动鼠标产生视差 · 点击虚影暂停片刻</p>
     </div>
   </div>
 </template>
@@ -31,14 +30,96 @@ let time = 0
 
 const isMobile = ref(false)
 
-// Scene objects
-let particles = []
-let notes = []
+// Memory figures configuration
+const MEMORY_CONFIG = [
+  {
+    id: 'grandmother',
+    name: '外婆',
+    phrase: '掌心的温度，护我长大',
+    color: '#e8983e',
+    spawnInterval: 8,
+    shape: 'grandmother'
+  },
+  {
+    id: 'childhoodFriends',
+    name: '小学玩伴',
+    phrase: '围坐一圈，笑声如铃',
+    color: '#f4d03f',
+    spawnInterval: 10,
+    shape: 'circleChildren'
+  },
+  {
+    id: 'chineseTeacher',
+    name: '初中语文老师',
+    phrase: '期待的目光，落在我肩上',
+    color: '#9b59b6',
+    spawnInterval: 9,
+    shape: 'teacher'
+  },
+  {
+    id: 'middleFriends',
+    name: '初中挚友',
+    phrase: '并肩而行，许下的约定',
+    color: '#1abc9c',
+    spawnInterval: 11,
+    shape: 'twoFriends'
+  },
+  {
+    id: 'highSchoolFriend',
+    name: '高中挚友',
+    phrase: '后来的我们，依然同行',
+    color: '#3498db',
+    spawnInterval: 12,
+    shape: 'singleFriend'
+  },
+  {
+    id: 'luffy',
+    name: '路飞',
+    phrase: '永不熄灭的热血',
+    color: '#e74c3c',
+    spawnInterval: 13,
+    shape: 'luffy'
+  },
+  {
+    id: 'libai',
+    name: '李白',
+    phrase: '诗剑逍遥，潇洒人间',
+    color: '#ecf0f1',
+    spawnInterval: 14,
+    shape: 'libai'
+  },
+  {
+    id: 'headTeacher',
+    name: '高中班主任',
+    phrase: '严厉的光，照见前路',
+    color: '#34495e',
+    spawnInterval: 10,
+    shape: 'sternTeacher'
+  },
+  {
+    id: 'collegeFriend',
+    name: '大学红颜',
+    phrase: '擦肩而过的流星',
+    color: '#e91e63',
+    spawnInterval: 15,
+    shape: 'departing'
+  },
+  {
+    id: 'lover',
+    name: '恋人',
+    phrase: '相爱的背影，渐行渐远',
+    color: '#c0392b',
+    spawnInterval: 16,
+    shape: 'loversBack'
+  }
+]
+
+let activeFigures = []
+let spawnTimers = {}
 let stars = []
-let zzzs = []
-let catState = { blink: 0, tail: 0, purr: 0 }
-let dogState = { blink: 0, tail: 0, happy: 0 }
-let controllerGlow = 0
+let nebulaClouds = []
+let selfFigure = null
+let clickedFigure = null
 
 onMounted(() => {
   isMobile.value = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -96,584 +177,454 @@ function onTouchMove(e) {
 }
 
 function resetScene() {
-  particles = []
-  notes = []
+  activeFigures = []
+  spawnTimers = {}
   stars = []
-  zzzs = []
+  nebulaClouds = []
+  clickedFigure = null
 
-  const particleCount = isMobile.value || reducedMotion.value ? 12 : 30
-  for (let i = 0; i < particleCount; i++) {
-    particles.push(createParticle())
-  }
-
-  const noteCount = isMobile.value || reducedMotion.value ? 2 : 5
-  for (let i = 0; i < noteCount; i++) {
-    notes.push(createNote())
-  }
-
-  const starCount = isMobile.value || reducedMotion.value ? 15 : 40
+  const starCount = isMobile.value || reducedMotion.value ? 60 : 150
   for (let i = 0; i < starCount; i++) {
-    stars.push(createStar())
+    stars.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: Math.random() * 1.5 + 0.3,
+      twinkle: Math.random() * Math.PI * 2,
+      layer: Math.random() * 0.8 + 0.2
+    })
   }
+
+  const nebulaCount = isMobile.value || reducedMotion.value ? 3 : 6
+  for (let i = 0; i < nebulaCount; i++) {
+    nebulaClouds.push({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      r: Math.random() * 150 + 100,
+      color: MEMORY_CONFIG[i % MEMORY_CONFIG.length].color,
+      alpha: 0.04,
+      vx: (Math.random() - 0.5) * 0.1,
+      vy: (Math.random() - 0.5) * 0.1
+    })
+  }
+
+  MEMORY_CONFIG.forEach((cfg, idx) => {
+    spawnTimers[cfg.id] = idx * 2
+  })
+
+  selfFigure = createSelfFigure()
 }
 
-function createParticle() {
+function createFigure(config) {
+  const baseSize = Math.min(width * 0.12, 140)
+  const particles = generateShape(config.shape, baseSize)
+  const speed = reducedMotion.value ? 0.15 : 0.25 + Math.random() * 0.15
+
   return {
-    x: Math.random() * width,
-    y: Math.random() * height,
-    r: Math.random() * 2 + 0.5,
-    vx: (Math.random() - 0.5) * 0.3,
-    vy: (Math.random() - 0.5) * 0.3,
-    alpha: Math.random() * 0.4 + 0.1
+    config,
+    x: width * 0.15 + Math.random() * width * 0.7,
+    y: -baseSize * 1.5,
+    baseSize,
+    particles,
+    speed,
+    opacity: 0,
+    targetOpacity: 0.75,
+    phase: 0,
+    textPhase: 0,
+    clicked: false,
+    clickTime: 0,
+    driftOffset: Math.random() * Math.PI * 2
   }
 }
 
-function createNote() {
+function generateShape(shapeType, baseSize) {
+  const particles = []
+  const s = baseSize / 100
+
+  switch (shapeType) {
+    case 'grandmother':
+      // Gentle, slightly hunched figure with reaching hand
+      particles.push({ x: 0, y: -35 * s, r: 8 * s })
+      particles.push({ x: 5 * s, y: -10 * s, r: 15 * s })
+      particles.push({ x: -20 * s, y: 5 * s, r: 10 * s })
+      particles.push({ x: -35 * s, y: 15 * s, r: 7 * s })
+      particles.push({ x: 10 * s, y: 30 * s, r: 12 * s })
+      particles.push({ x: -8 * s, y: 55 * s, r: 9 * s })
+      particles.push({ x: 12 * s, y: 55 * s, r: 9 * s })
+      break
+
+    case 'circleChildren':
+      // Three small figures in a circle
+      for (let i = 0; i < 3; i++) {
+        const angle = (i / 3) * Math.PI * 2
+        const cx = Math.cos(angle) * 25 * s
+        const cy = Math.sin(angle) * 15 * s
+        particles.push({ x: cx, y: cy - 10 * s, r: 7 * s })
+        particles.push({ x: cx, y: cy + 10 * s, r: 10 * s })
+      }
+      break
+
+    case 'teacher':
+      // Standing figure holding book
+      particles.push({ x: 0, y: -40 * s, r: 8 * s })
+      particles.push({ x: 0, y: -10 * s, r: 14 * s })
+      particles.push({ x: -10 * s, y: 10 * s, r: 8 * s })
+      particles.push({ x: 12 * s, y: -5 * s, r: 10 * s })
+      particles.push({ x: -5 * s, y: 40 * s, r: 10 * s })
+      particles.push({ x: 8 * s, y: 40 * s, r: 10 * s })
+      break
+
+    case 'twoFriends':
+      // Two figures side by side
+      for (let i = 0; i < 2; i++) {
+        const dx = (i - 0.5) * 35 * s
+        particles.push({ x: dx, y: -35 * s, r: 8 * s })
+        particles.push({ x: dx, y: -5 * s, r: 13 * s })
+        particles.push({ x: dx, y: 35 * s, r: 10 * s })
+      }
+      break
+
+    case 'singleFriend':
+      // Single figure with open arms
+      particles.push({ x: 0, y: -38 * s, r: 8 * s })
+      particles.push({ x: 0, y: -5 * s, r: 13 * s })
+      particles.push({ x: -20 * s, y: -15 * s, r: 8 * s })
+      particles.push({ x: 20 * s, y: -15 * s, r: 8 * s })
+      particles.push({ x: -8 * s, y: 40 * s, r: 10 * s })
+      particles.push({ x: 8 * s, y: 40 * s, r: 10 * s })
+      break
+
+    case 'luffy':
+      // Figure with straw hat silhouette
+      particles.push({ x: 0, y: -42 * s, r: 12 * s })
+      particles.push({ x: 0, y: -15 * s, r: 10 * s })
+      particles.push({ x: 0, y: 15 * s, r: 14 * s })
+      particles.push({ x: -15 * s, y: 5 * s, r: 8 * s })
+      particles.push({ x: 15 * s, y: 5 * s, r: 8 * s })
+      particles.push({ x: -8 * s, y: 50 * s, r: 10 * s })
+      particles.push({ x: 8 * s, y: 50 * s, r: 10 * s })
+      break
+
+    case 'libai':
+      // Poet with flowing sleeves and sword
+      particles.push({ x: 0, y: -38 * s, r: 8 * s })
+      particles.push({ x: 0, y: -5 * s, r: 12 * s })
+      particles.push({ x: -25 * s, y: 10 * s, r: 8 * s })
+      particles.push({ x: 25 * s, y: 0 * s, r: 8 * s })
+      particles.push({ x: 0, y: 40 * s, r: 10 * s })
+      particles.push({ x: -10 * s, y: 70 * s, r: 8 * s })
+      break
+
+    case 'sternTeacher':
+      // Upright, stern figure
+      particles.push({ x: 0, y: -42 * s, r: 8 * s })
+      particles.push({ x: 0, y: -10 * s, r: 15 * s })
+      particles.push({ x: -12 * s, y: 0, r: 9 * s })
+      particles.push({ x: 12 * s, y: 0, r: 9 * s })
+      particles.push({ x: -8 * s, y: 45 * s, r: 10 * s })
+      particles.push({ x: 8 * s, y: 45 * s, r: 10 * s })
+      break
+
+    case 'departing':
+      // Figure walking away
+      particles.push({ x: 0, y: -38 * s, r: 8 * s })
+      particles.push({ x: 0, y: -5 * s, r: 12 * s })
+      particles.push({ x: -5 * s, y: 35 * s, r: 10 * s })
+      particles.push({ x: 8 * s, y: 40 * s, r: 10 * s })
+      particles.push({ x: 20 * s, y: 15 * s, r: 7 * s })
+      break
+
+    case 'loversBack':
+      // Two figures, one departing
+      particles.push({ x: -8 * s, y: -35 * s, r: 8 * s })
+      particles.push({ x: -8 * s, y: -5 * s, r: 12 * s })
+      particles.push({ x: -8 * s, y: 40 * s, r: 10 * s })
+      particles.push({ x: 25 * s, y: -35 * s, r: 7 * s })
+      particles.push({ x: 30 * s, y: 0, r: 10 * s })
+      particles.push({ x: 35 * s, y: 35 * s, r: 9 * s })
+      break
+
+    default:
+      particles.push({ x: 0, y: -35 * s, r: 8 * s })
+      particles.push({ x: 0, y: 0, r: 14 * s })
+      particles.push({ x: 0, y: 45 * s, r: 10 * s })
+  }
+
+  return particles
+}
+
+function createSelfFigure() {
+  const baseSize = Math.min(width * 0.08, 80)
   return {
-    x: Math.random() * width,
-    y: height * 0.3 + Math.random() * height * 0.4,
-    size: 12 + Math.random() * 10,
-    vx: 0.2 + Math.random() * 0.4,
-    vy: -0.3 - Math.random() * 0.3,
-    alpha: 0,
-    phase: Math.random() * Math.PI * 2
+    x: width / 2,
+    y: height * 0.82,
+    baseSize,
+    opacity: 0,
+    targetOpacity: 0.9,
+    phase: 0
   }
-}
-
-function createStar() {
-  return {
-    x: Math.random() * width,
-    y: Math.random() * height * 0.55,
-    r: Math.random() * 1.5 + 0.3,
-    twinkle: Math.random() * Math.PI * 2
-  }
-}
-
-function createZzz(x, y) {
-  zzzs.push({ x, y, size: 10, alpha: 1, vy: -0.5 })
 }
 
 function animate() {
   time += 0.016
   ctx.clearRect(0, 0, width, height)
 
-  drawSky()
-  drawRoom()
-  drawWindow()
-  drawDesk()
-  drawMonitor()
-  drawController()
-  drawCat()
-  drawDog()
-  drawMusicNotes()
-  drawParticles()
-  drawZzzs()
+  drawBackground()
+  drawNebula()
+  drawStars()
+  drawRiver()
 
   if (!reducedMotion.value) {
-    updateNotes()
-    updateParticles()
-    updateZzzs()
-    controllerGlow = Math.sin(time * 2) * 0.3 + 0.7
-  } else {
-    controllerGlow = 0.5
+    spawnFigures()
+    updateFigures()
   }
+  drawFigures()
+
+  drawSelf()
 
   animationId = requestAnimationFrame(animate)
 }
 
-// ==================== DRAWING HELPERS ====================
-
-function drawSky() {
+function drawBackground() {
   const gradient = ctx.createLinearGradient(0, 0, 0, height)
-  gradient.addColorStop(0, '#1a1f3c')
-  gradient.addColorStop(0.55, '#2d3455')
-  gradient.addColorStop(0.55, '#3e4a6b')
-  gradient.addColorStop(1, '#4a5a7a')
+  gradient.addColorStop(0, '#0a0e1a')
+  gradient.addColorStop(0.4, '#11162b')
+  gradient.addColorStop(0.7, '#1a1f3c')
+  gradient.addColorStop(1, '#0f1423')
   ctx.fillStyle = gradient
   ctx.fillRect(0, 0, width, height)
-
-  // Moon
-  const moonX = width * 0.82 + mouse.x * 8
-  const moonY = height * 0.15 + mouse.y * 6
-  ctx.save()
-  ctx.shadowBlur = 30
-  ctx.shadowColor = 'rgba(255, 248, 220, 0.4)'
-  ctx.fillStyle = '#fff8dc'
-  ctx.beginPath()
-  ctx.arc(moonX, moonY, 28, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
 }
 
-function drawRoom() {
-  // Floor
-  const floorY = height * 0.55
-  const floorGradient = ctx.createLinearGradient(0, floorY, 0, height)
-  floorGradient.addColorStop(0, '#5c4a3d')
-  floorGradient.addColorStop(1, '#3d2f27')
-  ctx.fillStyle = floorGradient
-  ctx.fillRect(0, floorY, width, height - floorY)
+function drawNebula() {
+  for (const cloud of nebulaClouds) {
+    if (!reducedMotion.value) {
+      cloud.x += cloud.vx
+      cloud.y += cloud.vy
+      if (cloud.x < -cloud.r) cloud.x = width + cloud.r
+      if (cloud.x > width + cloud.r) cloud.x = -cloud.r
+      if (cloud.y < -cloud.r) cloud.y = height + cloud.r
+      if (cloud.y > height + cloud.r) cloud.y = -cloud.r
+    }
 
-  // Floor boards
-  ctx.strokeStyle = 'rgba(0,0,0,0.1)'
-  ctx.lineWidth = 1
-  for (let i = 0; i < width; i += 80) {
+    const g = ctx.createRadialGradient(cloud.x, cloud.y, 0, cloud.x, cloud.y, cloud.r)
+    g.addColorStop(0, hexToRgba(cloud.color, cloud.alpha))
+    g.addColorStop(1, hexToRgba(cloud.color, 0))
+    ctx.fillStyle = g
     ctx.beginPath()
-    ctx.moveTo(i, floorY)
-    ctx.lineTo(i + (width * 0.08), height)
-    ctx.stroke()
+    ctx.arc(cloud.x, cloud.y, cloud.r, 0, Math.PI * 2)
+    ctx.fill()
   }
-
-  // Back wall subtle parallax
-  const px = mouse.x * 12
-  const py = mouse.y * 8
-
-  // Rug
-  ctx.save()
-  ctx.translate(width * 0.5 + px * 0.3, height * 0.78 + py * 0.2)
-  ctx.fillStyle = '#7a9a8a'
-  ctx.beginPath()
-  ctx.ellipse(0, 0, width * 0.32, height * 0.12, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)'
-  ctx.lineWidth = 3
-  ctx.stroke()
-  ctx.restore()
 }
 
-function drawWindow() {
-  const px = mouse.x * 18
-  const py = mouse.y * 12
-  const wx = width * 0.15 + px
-  const wy = height * 0.12 + py
-  const ww = Math.min(width * 0.35, 320)
-  const wh = Math.min(height * 0.38, 260)
+function drawStars() {
+  for (const star of stars) {
+    const parallaxX = mouse.x * 20 * star.layer
+    const parallaxY = mouse.y * 15 * star.layer
+    const x = star.x + parallaxX
+    const y = star.y + parallaxY
 
-  // Window frame
-  ctx.save()
-  ctx.fillStyle = '#1e2438'
-  ctx.fillRect(wx - 8, wy - 8, ww + 16, wh + 16)
+    let twinkle = 1
+    if (!reducedMotion.value) {
+      twinkle = Math.sin(time * 2 + star.twinkle) * 0.5 + 0.5
+    }
 
-  // Night sky inside window
-  const skyG = ctx.createLinearGradient(wx, wy, wx, wy + wh)
-  skyG.addColorStop(0, '#0d1b2a')
-  skyG.addColorStop(1, '#1b263b')
-  ctx.fillStyle = skyG
-  ctx.fillRect(wx, wy, ww, wh)
-
-  // Stars in window
-  ctx.fillStyle = '#ffffff'
-  for (const s of stars) {
-    const twinkle = Math.sin(time * 2 + s.twinkle) * 0.5 + 0.5
+    ctx.fillStyle = '#ffffff'
     ctx.globalAlpha = twinkle * 0.8
     ctx.beginPath()
-    ctx.arc(wx + s.x * (ww / width), wy + s.y * (wh / (height * 0.55)), s.r, 0, Math.PI * 2)
+    ctx.arc(x, y, star.r, 0, Math.PI * 2)
     ctx.fill()
   }
   ctx.globalAlpha = 1
-
-  // Window crossbars
-  ctx.strokeStyle = '#2a314a'
-  ctx.lineWidth = 6
-  ctx.beginPath()
-  ctx.moveTo(wx + ww / 2, wy)
-  ctx.lineTo(wx + ww / 2, wy + wh)
-  ctx.moveTo(wx, wy + wh / 2)
-  ctx.lineTo(wx + ww, wy + wh / 2)
-  ctx.stroke()
-
-  // Window sill
-  ctx.fillStyle = '#3d455e'
-  ctx.fillRect(wx - 12, wy + wh, ww + 24, 10)
-  ctx.restore()
 }
 
-function drawDesk() {
-  const px = mouse.x * 10
-  const py = mouse.y * 6
-  const dx = width * 0.62 + px
-  const dy = height * 0.62 + py
-  const dw = Math.min(width * 0.3, 280)
-  const dh = height * 0.18
+function drawRiver() {
+  const gradient = ctx.createLinearGradient(0, 0, 0, height)
+  gradient.addColorStop(0, 'rgba(100, 150, 255, 0)')
+  gradient.addColorStop(0.3, 'rgba(100, 150, 255, 0.03)')
+  gradient.addColorStop(0.7, 'rgba(150, 120, 255, 0.05)')
+  gradient.addColorStop(1, 'rgba(200, 180, 255, 0.08)')
+  ctx.fillStyle = gradient
+  ctx.fillRect(width * 0.2, 0, width * 0.6, height)
 
-  // Desk legs
-  ctx.fillStyle = '#4a3b2f'
-  ctx.fillRect(dx - dw * 0.42, dy + dh * 0.3, 12, dh * 0.7)
-  ctx.fillRect(dx + dw * 0.42 - 12, dy + dh * 0.3, 12, dh * 0.7)
-
-  // Desk top
-  ctx.fillStyle = '#6b5544'
-  ctx.beginPath()
-  ctx.moveTo(dx - dw / 2, dy)
-  ctx.lineTo(dx + dw / 2, dy)
-  ctx.lineTo(dx + dw / 2 - 10, dy + dh * 0.3)
-  ctx.lineTo(dx - dw / 2 + 10, dy + dh * 0.3)
-  ctx.closePath()
-  ctx.fill()
-}
-
-function drawMonitor() {
-  const px = mouse.x * 10
-  const py = mouse.y * 6
-  const mx = width * 0.62 + px
-  const my = height * 0.52 + py
-  const mw = Math.min(width * 0.16, 150)
-  const mh = mw * 0.6
-
-  // Stand
-  ctx.fillStyle = '#2a2a2a'
-  ctx.fillRect(mx - 6, my + mh, 12, 18)
-  ctx.fillRect(mx - 20, my + mh + 16, 40, 6)
-
-  // Screen bezel
-  ctx.fillStyle = '#1a1a1a'
-  ctx.fillRect(mx - mw / 2 - 4, my - 4, mw + 8, mh + 8)
-
-  // Screen glow
-  ctx.save()
-  ctx.shadowBlur = 20
-  ctx.shadowColor = 'rgba(100, 150, 255, 0.3)'
-  ctx.fillStyle = '#0f172a'
-  ctx.fillRect(mx - mw / 2, my, mw, mh)
-  ctx.restore()
-
-  // Code lines on screen
-  ctx.fillStyle = '#7dd3fc'
-  for (let i = 0; i < 5; i++) {
-    const lineWidth = mw * (0.5 + Math.random() * 0.4)
-    ctx.fillRect(mx - mw / 2 + 8, my + 10 + i * 14, lineWidth, 3)
-  }
-}
-
-function drawController() {
-  const px = mouse.x * 10
-  const py = mouse.y * 6
-  const cx = width * 0.72 + px
-  const cy = height * 0.6 + py
-  const size = Math.min(width * 0.06, 50)
-
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.rotate(0.2)
-
-  // Glow
+  // Flowing light particles in river
   if (!reducedMotion.value) {
-    ctx.shadowBlur = 15 + controllerGlow * 10
-    ctx.shadowColor = `rgba(255, 100, 150, ${0.2 + controllerGlow * 0.3})`
+    const flowCount = isMobile.value ? 15 : 30
+    for (let i = 0; i < flowCount; i++) {
+      const t = (time * 0.3 + i * 0.2) % 1
+      const y = t * height
+      const x = width * 0.5 + Math.sin(time + i) * width * 0.15
+      const alpha = Math.sin(t * Math.PI) * 0.4
+      ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`
+      ctx.beginPath()
+      ctx.arc(x, y, 1.5, 0, Math.PI * 2)
+      ctx.fill()
+    }
   }
-
-  // Body
-  ctx.fillStyle = '#2d2d3a'
-  ctx.beginPath()
-  ctx.roundRect(-size, -size * 0.35, size * 2, size * 0.7, size * 0.2)
-  ctx.fill()
-
-  // D-pad
-  ctx.fillStyle = '#4a4a5c'
-  ctx.fillRect(-size * 0.6, -size * 0.12, size * 0.35, size * 0.08)
-  ctx.fillRect(-size * 0.46, -size * 0.22, size * 0.08, size * 0.28)
-
-  // Buttons
-  ctx.fillStyle = '#ff6b7a'
-  ctx.beginPath()
-  ctx.arc(size * 0.45, -size * 0.05, size * 0.08, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.fillStyle = '#6bc5ff'
-  ctx.beginPath()
-  ctx.arc(size * 0.3, -size * 0.18, size * 0.06, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.restore()
 }
 
-function drawCat() {
-  const px = mouse.x * 14
-  const py = mouse.y * 10
-  const cx = width * 0.35 + px
-  const cy = height * 0.72 + py
-  const scale = Math.min(width * 0.0005, 0.65)
-
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.scale(scale, scale)
-
-  // Cat bed
-  ctx.fillStyle = '#d4a373'
-  ctx.beginPath()
-  ctx.ellipse(0, 35, 90, 35, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Body (curled sleeping)
-  ctx.fillStyle = '#e8983e'
-  ctx.beginPath()
-  ctx.ellipse(0, 0, 55, 40, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Belly
-  ctx.fillStyle = '#fff5e6'
-  ctx.beginPath()
-  ctx.ellipse(5, 5, 35, 25, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Head
-  ctx.fillStyle = '#e8983e'
-  ctx.beginPath()
-  ctx.arc(-35, -20, 32, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Ears
-  ctx.fillStyle = '#c87020'
-  ctx.beginPath()
-  ctx.moveTo(-55, -42)
-  ctx.lineTo(-45, -75)
-  ctx.lineTo(-25, -48)
-  ctx.closePath()
-  ctx.fill()
-  ctx.beginPath()
-  ctx.moveTo(-15, -48)
-  ctx.lineTo(-5, -78)
-  ctx.lineTo(5, -45)
-  ctx.closePath()
-  ctx.fill()
-
-  // Eyes (closed or blink)
-  ctx.strokeStyle = '#553311'
-  ctx.lineWidth = 3
-  ctx.lineCap = 'round'
-  if (catState.blink > 0) {
-    ctx.beginPath()
-    ctx.arc(-45, -22, 4, 0, Math.PI * 2)
-    ctx.arc(-25, -22, 4, 0, Math.PI * 2)
-    ctx.fill()
-  } else {
-    ctx.beginPath()
-    ctx.moveTo(-50, -22)
-    ctx.quadraticCurveTo(-45, -16, -40, -22)
-    ctx.moveTo(-30, -22)
-    ctx.quadraticCurveTo(-25, -16, -20, -22)
-    ctx.stroke()
-  }
-
-  // Nose
-  ctx.fillStyle = '#ff9999'
-  ctx.beginPath()
-  ctx.arc(-35, -12, 4, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Tail with subtle wag
-  const tailAngle = Math.sin(time * 2 + catState.tail) * 0.15
-  ctx.fillStyle = '#e8983e'
-  ctx.beginPath()
-  ctx.ellipse(55 + tailAngle * 20, 0, 25, 12, tailAngle, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.restore()
+function spawnFigures() {
+  MEMORY_CONFIG.forEach((config) => {
+    spawnTimers[config.id] -= 0.016
+    if (spawnTimers[config.id] <= 0) {
+      activeFigures.push(createFigure(config))
+      spawnTimers[config.id] = config.spawnInterval + Math.random() * 4
+    }
+  })
 }
 
-function drawDog() {
-  const px = mouse.x * 12
-  const py = mouse.y * 8
-  const cx = width * 0.58 + px
-  const cy = height * 0.75 + py
-  const scale = Math.min(width * 0.00055, 0.7)
+function updateFigures() {
+  for (let i = activeFigures.length - 1; i >= 0; i--) {
+    const fig = activeFigures[i]
+    fig.y += fig.speed
+    fig.phase += 0.02
+    fig.textPhase += 0.015
 
-  ctx.save()
-  ctx.translate(cx, cy)
-  ctx.scale(scale, scale)
+    // Fade in then out
+    const centerY = height * 0.35
+    const dist = Math.abs(fig.y - centerY)
+    const maxDist = height * 0.45
+    fig.targetOpacity = Math.max(0, 1 - dist / maxDist) * 0.75
 
-  // Dog bed
-  ctx.fillStyle = '#8fa8b8'
-  ctx.beginPath()
-  ctx.ellipse(0, 30, 95, 38, 0, 0, Math.PI * 2)
-  ctx.fill()
+    if (fig.clicked) {
+      fig.targetOpacity = 1
+      fig.clickTime -= 0.016
+      if (fig.clickTime <= 0) fig.clicked = false
+    }
 
-  // Body (lying down)
-  ctx.fillStyle = '#e8a850'
-  ctx.beginPath()
-  ctx.ellipse(0, 0, 60, 35, 0, 0, Math.PI * 2)
-  ctx.fill()
+    fig.opacity += (fig.targetOpacity - fig.opacity) * 0.03
 
-  // Belly
-  ctx.fillStyle = '#fdf5e6'
-  ctx.beginPath()
-  ctx.ellipse(0, 5, 40, 22, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Head
-  ctx.fillStyle = '#e8a850'
-  ctx.beginPath()
-  ctx.arc(45, -20, 32, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Ears
-  ctx.fillStyle = '#c07830'
-  ctx.beginPath()
-  ctx.moveTo(25, -45)
-  ctx.lineTo(35, -85)
-  ctx.lineTo(55, -50)
-  ctx.closePath()
-  ctx.fill()
-  ctx.beginPath()
-  ctx.moveTo(60, -50)
-  ctx.lineTo(75, -88)
-  ctx.lineTo(85, -48)
-  ctx.closePath()
-  ctx.fill()
-
-  // Snout
-  ctx.fillStyle = '#fdf5e6'
-  ctx.beginPath()
-  ctx.ellipse(55, -5, 16, 12, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Nose
-  ctx.fillStyle = '#222'
-  ctx.beginPath()
-  ctx.arc(62, -10, 5, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Eyes
-  ctx.fillStyle = '#553311'
-  if (dogState.blink > 0) {
-    ctx.beginPath()
-    ctx.arc(40, -28, 4, 0, Math.PI * 2)
-    ctx.arc(60, -28, 4, 0, Math.PI * 2)
-    ctx.fill()
-  } else {
-    ctx.beginPath()
-    ctx.arc(40, -30, 4, 0, Math.PI * 2)
-    ctx.arc(60, -30, 4, 0, Math.PI * 2)
-    ctx.fill()
+    if (fig.y > height + fig.baseSize * 2) {
+      activeFigures.splice(i, 1)
+    }
   }
-
-  // Tail
-  const tailWag = Math.sin(time * 6 + dogState.tail) * 0.25
-  ctx.fillStyle = '#c07830'
-  ctx.save()
-  ctx.translate(-65, -5)
-  ctx.rotate(tailWag)
-  ctx.beginPath()
-  ctx.ellipse(-15, 0, 25, 10, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
-
-  ctx.restore()
 }
 
-function drawMusicNotes() {
-  ctx.fillStyle = '#ffd166'
-  ctx.strokeStyle = '#ffd166'
-  ctx.lineWidth = 2
-  ctx.lineCap = 'round'
+function drawFigures() {
+  for (const fig of activeFigures) {
+    if (fig.opacity < 0.01) continue
 
-  for (const note of notes) {
-    ctx.globalAlpha = note.alpha
+    drawFigureParticles(fig)
+    drawFigureText(fig)
+  }
+}
+
+function drawFigureParticles(fig) {
+  const px = fig.x + mouse.x * 15
+  const py = fig.y + mouse.y * 10
+  const drift = fig.clicked ? 0 : Math.sin(fig.phase + fig.driftOffset) * 3
+
+  ctx.save()
+  ctx.translate(px + drift, py)
+
+  for (const p of fig.particles) {
+    const wobble = fig.clicked ? 0 : Math.sin(time * 3 + p.x * 0.1) * 1.5
+
     ctx.save()
-    ctx.translate(note.x, note.y)
-    ctx.rotate(Math.sin(time + note.phase) * 0.2)
-
-    // Note head
+    ctx.globalAlpha = fig.opacity * 0.8
+    ctx.shadowBlur = fig.clicked ? 25 : 15
+    ctx.shadowColor = fig.config.color
+    ctx.fillStyle = fig.config.color
     ctx.beginPath()
-    ctx.ellipse(0, 0, note.size * 0.25, note.size * 0.18, -0.3, 0, Math.PI * 2)
+    ctx.arc(p.x + wobble, p.y, p.r, 0, Math.PI * 2)
     ctx.fill()
-
-    // Stem
-    ctx.beginPath()
-    ctx.moveTo(note.size * 0.2, -note.size * 0.1)
-    ctx.lineTo(note.size * 0.2, -note.size)
-    ctx.stroke()
-
-    // Flag
-    ctx.beginPath()
-    ctx.moveTo(note.size * 0.2, -note.size)
-    ctx.quadraticCurveTo(note.size * 0.55, -note.size * 0.75, note.size * 0.45, -note.size * 0.55)
-    ctx.stroke()
-
     ctx.restore()
   }
-  ctx.globalAlpha = 1
-}
 
-function drawParticles() {
-  ctx.fillStyle = '#ffffff'
-  for (const p of particles) {
-    ctx.globalAlpha = p.alpha
+  // Connection lines between particles for cohesion
+  ctx.save()
+  ctx.globalAlpha = fig.opacity * 0.2
+  ctx.strokeStyle = fig.config.color
+  ctx.lineWidth = 1
+  for (let i = 0; i < fig.particles.length - 1; i++) {
+    const a = fig.particles[i]
+    const b = fig.particles[i + 1]
     ctx.beginPath()
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.moveTo(a.x, a.y)
+    ctx.lineTo(b.x, b.y)
+    ctx.stroke()
   }
-  ctx.globalAlpha = 1
+  ctx.restore()
+
+  ctx.restore()
 }
 
-function drawZzzs() {
-  ctx.fillStyle = '#a8dadc'
-  ctx.font = 'bold 16px sans-serif'
-  for (const z of zzzs) {
-    ctx.globalAlpha = z.alpha
-    ctx.fillText('Z', z.x, z.y)
-  }
-  ctx.globalAlpha = 1
+function drawFigureText(fig) {
+  if (fig.opacity < 0.15) return
+
+  const textOpacity = fig.clicked
+    ? 1
+    : Math.sin(fig.textPhase) * 0.3 + 0.5
+
+  ctx.save()
+  ctx.globalAlpha = Math.min(fig.opacity * 1.5, textOpacity)
+  ctx.fillStyle = '#ffffff'
+  ctx.font = '400 14px "Noto Serif SC", "Microsoft YaHei", serif'
+  ctx.textAlign = 'center'
+  ctx.shadowBlur = 10
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'
+  ctx.fillText(fig.config.phrase, fig.x, fig.y - fig.baseSize * 1.3)
+
+  ctx.font = '12px "Noto Serif SC", "Microsoft YaHei", serif'
+  ctx.fillStyle = fig.config.color
+  ctx.fillText(fig.config.name, fig.x, fig.y - fig.baseSize * 1.6)
+  ctx.restore()
 }
 
-// ==================== UPDATE HELPERS ====================
+function drawSelf() {
+  if (!selfFigure) return
 
-function updateNotes() {
-  for (const note of notes) {
-    note.x += note.vx + Math.sin(time + note.phase) * 0.2
-    note.y += note.vy
-    note.alpha = Math.min(1, (note.y / height) * 2 + 0.2)
+  selfFigure.opacity += (selfFigure.targetOpacity - selfFigure.opacity) * 0.02
+  selfFigure.phase += 0.02
 
-    if (note.x > width + 50) note.x = -50
-    if (note.y < -50) note.y = height + 50
-  }
-}
+  const px = selfFigure.x + mouse.x * 8
+  const py = selfFigure.y + mouse.y * 5
+  const s = selfFigure.baseSize / 100
 
-function updateParticles() {
-  for (const p of particles) {
-    p.x += p.vx + mouse.x * 0.1
-    p.y += p.vy + mouse.y * 0.1
-    if (p.x < 0) p.x = width
-    if (p.x > width) p.x = 0
-    if (p.y < 0) p.y = height
-    if (p.y > height) p.y = 0
-  }
-}
+  ctx.save()
+  ctx.globalAlpha = selfFigure.opacity
+  ctx.translate(px, py)
 
-function updateZzzs() {
-  for (let i = zzzs.length - 1; i >= 0; i--) {
-    const z = zzzs[i]
-    z.y += z.vy
-    z.x += Math.sin(time * 3 + i) * 0.5
-    z.alpha -= 0.01
-    z.size += 0.2
-    if (z.alpha <= 0) zzzs.splice(i, 1)
-  }
+  // Self silhouette - small figure looking up
+  const selfColor = '#a8d8ff'
+  ctx.shadowBlur = 20
+  ctx.shadowColor = selfColor
+  ctx.fillStyle = selfColor
 
-  // Randomly spawn Zzz from cat
-  if (!reducedMotion.value && Math.random() < 0.01) {
-    const px = mouse.x * 14
-    const py = mouse.y * 10
-    createZzz(width * 0.32 + px, height * 0.66 + py)
-  }
-}
+  // Head
+  ctx.beginPath()
+  ctx.arc(0, -45 * s, 10 * s, 0, Math.PI * 2)
+  ctx.fill()
 
-// ==================== INTERACTIONS ====================
+  // Body
+  ctx.beginPath()
+  ctx.ellipse(0, -5 * s, 15 * s, 30 * s, 0, 0, Math.PI * 2)
+  ctx.fill()
 
-function interactCat() {
-  catState.tail += 1
-  catState.blink = 1
-  const px = mouse.x * 14
-  const py = mouse.y * 10
-  createZzz(width * 0.32 + px, height * 0.66 + py)
-  createZzz(width * 0.34 + px, height * 0.64 + py)
-  setTimeout(() => { catState.blink = 0 }, 200)
-}
+  // Looking up head tilt
+  ctx.save()
+  ctx.rotate(-0.2)
+  ctx.restore()
 
-function interactDog() {
-  dogState.tail += 1
-  dogState.blink = 1
-  setTimeout(() => { dogState.blink = 0 }, 200)
+  // Glow star above head
+  const starY = -85 * s + Math.sin(selfFigure.phase) * 3
+  ctx.fillStyle = '#fff8dc'
+  ctx.shadowBlur = 30
+  ctx.shadowColor = 'rgba(255, 248, 220, 0.6)'
+  ctx.beginPath()
+  ctx.arc(0, starY, 6 * s, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.restore()
+
+  // Text: "最后，我仰望自己的星空"
+  ctx.save()
+  ctx.globalAlpha = selfFigure.opacity
+  ctx.fillStyle = 'rgba(255,255,255,0.8)'
+  ctx.font = 'italic 400 16px "Noto Serif SC", "Microsoft YaHei", serif'
+  ctx.textAlign = 'center'
+  ctx.shadowBlur = 8
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'
+  ctx.fillText('最后，我仰望自己的星空', px, py + selfFigure.baseSize * 1.2)
+  ctx.restore()
 }
 
 function onCanvasClick(e) {
@@ -681,34 +632,45 @@ function onCanvasClick(e) {
   const x = e.clientX - rect.left
   const y = e.clientY - rect.top
 
-  // Check cat area
-  const catX = width * 0.35 + mouse.x * 14
-  const catY = height * 0.72 + mouse.y * 10
-  const catSize = Math.min(width * 0.12, 120)
-  if (x > catX - catSize && x < catX + catSize && y > catY - catSize && y < catY + catSize) {
-    interactCat()
-    return
+  // Check if clicked on a figure
+  for (const fig of activeFigures) {
+    const dx = x - fig.x
+    const dy = y - fig.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < fig.baseSize) {
+      fig.clicked = true
+      fig.clickTime = 3
+      return
+    }
   }
 
-  // Check dog area
-  const dogX = width * 0.58 + mouse.x * 12
-  const dogY = height * 0.75 + mouse.y * 8
-  const dogSize = Math.min(width * 0.14, 140)
-  if (x > dogX - dogSize && x < dogX + dogSize && y > dogY - dogSize && y < dogY + dogSize) {
-    interactDog()
+  // Check self figure
+  if (selfFigure) {
+    const dx = x - selfFigure.x
+    const dy = y - selfFigure.y
+    if (Math.sqrt(dx * dx + dy * dy) < selfFigure.baseSize) {
+      selfFigure.phase += 1
+    }
   }
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16)
+  const g = parseInt(hex.slice(3, 5), 16)
+  const b = parseInt(hex.slice(5, 7), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 </script>
 
 <style scoped>
-.home-canvas {
+.home-memory {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #1a1f3c;
+  background: #0a0e1a;
 }
 
-.home-canvas canvas {
+.home-memory canvas {
   display: block;
   width: 100%;
   height: 100%;
@@ -716,13 +678,15 @@ function onCanvasClick(e) {
 
 .home-overlay {
   position: absolute;
-  bottom: 60px;
+  top: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  justify-content: space-between;
+  padding: 80px 20px 60px;
   z-index: 10;
   pointer-events: none;
 }
@@ -731,73 +695,63 @@ function onCanvasClick(e) {
   pointer-events: auto;
 }
 
-.pet-names {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 16px;
-  font-family: Georgia, serif;
+.title-area {
+  text-align: center;
+  margin-top: 5vh;
 }
 
-.cat-name,
-.dog-name {
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  transition: all 0.2s;
-  padding: 6px 16px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
-  letter-spacing: 1px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+.main-title {
+  font-family: "Noto Serif SC", "Microsoft YaHei", serif;
+  font-size: 42px;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.95);
+  letter-spacing: 12px;
+  text-shadow: 0 2px 30px rgba(100, 150, 255, 0.3);
+  margin: 0 0 12px 0;
 }
 
-.cat-name:hover {
-  color: #ffd166;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.dog-name:hover {
-  color: #e8a850;
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.and {
-  color: rgba(255, 255, 255, 0.4);
+.subtitle {
+  font-family: "Noto Serif SC", "Microsoft YaHei", serif;
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 3px;
+  margin: 0;
 }
 
 .home-enter {
   font-size: 15px;
   color: #f0f4f8;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 12px 40px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 14px 44px;
   border-radius: 30px;
   letter-spacing: 2px;
   transition: all 0.3s;
   text-decoration: none;
   backdrop-filter: blur(8px);
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 20px rgba(100, 150, 255, 0.1);
+  margin-bottom: 40px;
 }
 
 .home-enter:hover {
-  background: #6b8cce;
+  background: rgba(107, 140, 206, 0.5);
   color: #fff;
-  border-color: #6b8cce;
+  border-color: rgba(107, 140, 206, 0.6);
   text-decoration: none;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 20px rgba(107, 140, 206, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 30px rgba(107, 140, 206, 0.3);
 }
 
 .controls {
-  display: flex;
-  gap: 12px;
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
 }
 
 .toggle-btn {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 6px 14px;
   border-radius: 16px;
@@ -807,37 +761,42 @@ function onCanvasClick(e) {
 }
 
 .toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .hint {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.3);
   letter-spacing: 0.5px;
   margin: 0;
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 /* Mobile adjustments */
 @media (max-width: 768px) {
   .home-overlay {
-    bottom: 40px;
-    gap: 12px;
+    padding: 60px 16px 50px;
   }
 
-  .pet-names {
-    font-size: 14px;
-    gap: 8px;
+  .main-title {
+    font-size: 28px;
+    letter-spacing: 8px;
   }
 
-  .cat-name,
-  .dog-name {
-    padding: 5px 12px;
+  .subtitle {
+    font-size: 13px;
+    letter-spacing: 2px;
   }
 
   .home-enter {
     font-size: 14px;
-    padding: 10px 32px;
+    padding: 12px 36px;
+    margin-bottom: 60px;
   }
 
   .hint {
@@ -846,23 +805,22 @@ function onCanvasClick(e) {
 }
 
 @media (max-width: 375px) {
-  .home-overlay {
-    bottom: 32px;
+  .main-title {
+    font-size: 24px;
+    letter-spacing: 6px;
   }
 
-  .pet-names {
-    font-size: 13px;
+  .subtitle {
+    font-size: 12px;
   }
 
   .home-enter {
     font-size: 13px;
-    padding: 8px 28px;
+    padding: 10px 30px;
   }
 }
 
 .reduced-motion .home-enter:hover,
-.reduced-motion .cat-name:hover,
-.reduced-motion .dog-name:hover,
 .reduced-motion .toggle-btn:hover {
   transform: none;
 }
